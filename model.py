@@ -16,10 +16,17 @@ from keras.layers.core import Dense, Activation, Flatten, Dropout
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
+from keras.regularizers import l2
 
 EPOCHS = 5
 WIDTH = 160
 HEIGHTS = 80
+LEARNING_RATE = 0.001
+FINE_TUNING = False
+CHANNEL_NUMBER = 1
+REGULARIZATION = 0.001
+
+INPUT_SHAPE = (WIDTH, HEIGHTS, CHANNEL_NUMBER)
 
 def signSpecifiedClahe(img):
     blue = img[:, :, 0]
@@ -37,27 +44,6 @@ def signSpecifiedClahe(img):
 class DLProgress(tqdm):
     last_block = 0
 
-    def hook(self, block_num=1, block_size=1, total_size=None):
-        self.total = total_size
-        self.update((block_num - self.last_block) * block_size)
-        self.last_block = block_num
-
-if not isfile('train.p'):
-    with DLProgress(unit='B', unit_scale=True, miniters=1, desc='Train Dataset') as pbar:
-        urlretrieve(
-            'https://s3.amazonaws.com/udacity-sdc/datasets/german_traffic_sign_benchmark/train.p',
-            'train.p',
-            pbar.hook)
-
-if not isfile('test.p'):
-    with DLProgress(unit='B', unit_scale=True, miniters=1, desc='Test Dataset') as pbar:
-        urlretrieve(
-            'https://s3.amazonaws.com/udacity-sdc/datasets/german_traffic_sign_benchmark/test.p',
-            'test.p',
-            pbar.hook)
-
-print('Training and Test data downloaded.')
-
 # Fix error with TF and Keras
 import tensorflow as tf
 tf.python.control_flow_ops = tf
@@ -70,21 +56,8 @@ with open('train.p', 'rb') as f:
 X_train = data['features']
 y_train = data['labels']
 
-assert np.array_equal(X_train, data['features']), 'X_train not set to data[\'features\'].'
-assert np.array_equal(y_train, data['labels']), 'y_train not set to data[\'labels\'].'
-print('Tests passed.')
-
 X_train, y_train = shuffle(X_train, y_train)
 
-# STOP: Do not change the tests below. Your implementation should pass these tests.
-assert X_train.shape == data['features'].shape, 'X_train has changed shape. The shape shouldn\'t change when shuffling.'
-assert y_train.shape == data['labels'].shape, 'y_train has changed shape. The shape shouldn\'t change when shuffling.'
-assert not np.array_equal(X_train, data['features']), 'X_train not shuffled.'
-assert not np.array_equal(y_train, data['labels']), 'y_train not shuffled.'
-print('Tests passed.')
-
-
-# TODO: Normalize the data features to the variable X_normalized
 def normalize_grayscale(image_data):
     image_data = signSpecifiedClahe(image_data)
     a = -0.5
@@ -96,25 +69,35 @@ def normalize_grayscale(image_data):
 X_normalized = normalize_grayscale(X_train)
 resized = tf.image.resize_images(X_normalized, [WIDTH, HEIGHTS])
 
-# STOP: Do not change the tests below. Your implementation should pass these tests.
-assert math.isclose(np.min(X_normalized), -0.5, abs_tol=1e-5) and math.isclose(np.max(X_normalized), 0.5, abs_tol=1e-5), 'The range of the training data is: {} to {}.  It must be -0.5 to 0.5'.format(np.min(X_normalized), np.max(X_normalized))
-print('Tests passed.')
 
-# TODO: One Hot encode the labels to the variable y_one_hot
 label_binarizer = LabelBinarizer()
 y_one_hot = label_binarizer.fit_transform(y_train)
 
-
 model = Sequential()
-model.add(Convolution2D(32, 3, 3, input_shape=(32, 32, 3)))
-model.add(MaxPooling2D((2, 2)))
+model.add(Convolution2D(24, 5, 5, subsample=(2, 2), input_shape=INPUT_SHAPE,  W_regularizer=l2(REGULARIZATION)))
 model.add(Dropout(0.5))
-model.add(Activation('relu'))
+model.add(LeakyReLU())
+model.add(Convolution2D(36, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
+model.add(Dropout(0.5))
+model.add(LeakyReLU())
+model.add(Convolution2D(48, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
+model.add(Dropout(0.5))
+model.add(LeakyReLU())
+model.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
+model.add(Dropout(0.5))
+model.add(LeakyReLU())
+model.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
+model.add(Dropout(0.5))
+model.add(LeakyReLU())
 model.add(Flatten())
-model.add(Dense(128))
-model.add(Activation('relu'))
-model.add(Dense(43))
-model.add(Activation('softmax'))
+model.add(Dense(100, W_regularizer=l2(REGULARIZATION)))
+model.add(LeakyReLU())
+model.add(Dense(50, W_regularizer=l2(REGULARIZATION)))
+model.add(LeakyReLU())
+model.add(Dense(10, W_regularizer=l2(REGULARIZATION)))
+model.add(LeakyReLU())
+model.add(Dense(1, W_regularizer=l2(REGULARIZATION)))
+#model.add(Activation('softmax'))
 
 model.compile('adam', 'categorical_crossentropy', ['accuracy'])
 history = model.fit(X_normalized, y_one_hot, nb_epoch=EPOCHS, validation_split=0.2)
