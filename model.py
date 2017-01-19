@@ -6,7 +6,7 @@ import json
 
 from sklearn.utils import shuffle
 from keras.models import Sequential, model_from_json
-from keras.layers.core import Dense, Flatten, Dropout
+from keras.layers.core import Dense, Flatten, Dropout, Lambda
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import Convolution2D
 from keras.regularizers import l2
@@ -21,12 +21,15 @@ CHANNEL_NUMBER = 1
 REGULARIZATION = 0.001
 FINE_TUNING = False
 
-INPUT_SHAPE = (WIDTH, HEIGHTS, CHANNEL_NUMBER)
+INPUT_SHAPE = (HEIGHTS, WIDTH, CHANNEL_NUMBER)
 tf.python.control_flow_ops = tf
 
 
 def learning_rate():
-    return lambda x: 0.001 if FINE_TUNING is False else 0.00001
+    if FINE_TUNING:
+        return 0.00001
+    else:
+        return 0.0001
 
 
 def apply_clahe(filename):
@@ -50,6 +53,7 @@ def normalize_grayscale(image_data):
 
 def generate_cnn_model():
     cnn = Sequential()
+    model.add(Lambda(lambda x: x / 128. - 1., input_shape=INPUT_SHAPE, output_shape=INPUT_SHAPE))
     cnn.add(Convolution2D(24, 5, 5, subsample=(2, 2), input_shape=INPUT_SHAPE, W_regularizer=l2(REGULARIZATION)))
     cnn.add(Dropout(0.5))
     cnn.add(LeakyReLU())
@@ -95,7 +99,7 @@ def generate_data_from_driving(images):
             final_images[k] = final_image
             final_angles[k] = angle
             index += 1
-        yield ({'batchnormalization_input_1': final_images}, {'output': final_angles})
+        yield ({'lambda_input_1': final_images}, {'dense_4': final_angles})
 
 
 def epoch_data_length(data_length):
@@ -120,9 +124,9 @@ X_train = shuffle(X_train)
 train_elements_len = int(3.0 * driving_log_length / 4.0)
 valid_elements_len = int(driving_log_length / 4.0 / 2.0)
 
-X_train = X_train[:train_elements_len]
 X_valid = X_train[train_elements_len:train_elements_len + valid_elements_len]
 X_test = X_train[train_elements_len + valid_elements_len:]
+X_train = X_train[:train_elements_len]
 
 if FINE_TUNING:
     with open("model.json.save", 'r') as jfile:
