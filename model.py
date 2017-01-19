@@ -19,7 +19,7 @@ WIDTH = 160
 HEIGHTS = 80
 CHANNEL_NUMBER = 3
 REGULARIZATION = 0.0
-FINE_TUNING = False
+FINE_TUNING = True
 
 INPUT_SHAPE = (HEIGHTS, WIDTH, CHANNEL_NUMBER)
 tf.python.control_flow_ops = tf
@@ -147,11 +147,11 @@ X_test = X_train[train_elements_len + valid_elements_len:]
 X_train = X_train[:train_elements_len]
 
 if FINE_TUNING:
-    with open("model.json.save", 'r') as jfile:
+    with open("model.json", 'r') as jfile:
         model = model_from_json(json.load(jfile))
 
     model.compile("adam", "mse")
-    weights_file = "model.h5.save"
+    weights_file = "model.h5"
     model.load_weights(weights_file)
 else:
     model = generate_cnn_model()
