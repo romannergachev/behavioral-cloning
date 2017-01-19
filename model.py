@@ -53,7 +53,7 @@ def normalize_grayscale(image_data):
 
 def generate_cnn_model():
     cnn = Sequential()
-    model.add(Lambda(lambda x: x / 128. - 1., input_shape=INPUT_SHAPE, output_shape=INPUT_SHAPE))
+    cnn.add(Lambda(lambda x: x / 128. - 1., input_shape=INPUT_SHAPE, output_shape=INPUT_SHAPE))
     cnn.add(Convolution2D(24, 5, 5, subsample=(2, 2), input_shape=INPUT_SHAPE, W_regularizer=l2(REGULARIZATION)))
     cnn.add(Dropout(0.5))
     cnn.add(LeakyReLU())
