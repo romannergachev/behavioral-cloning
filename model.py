@@ -1,120 +1,164 @@
-# Load pickled data
-from urllib.request import urlretrieve
-from os.path import isfile
-from tqdm import tqdm
-import pickle
 import numpy as np
 import math
-from sklearn.utils import shuffle
-from sklearn.preprocessing import LabelBinarizer
-import collections
+import csv
 import cv2
+import json
 
-from keras.models import Sequential
-from keras.models import Sequential
-from keras.layers.core import Dense, Activation, Flatten, Dropout
+from sklearn.utils import shuffle
+from keras.models import Sequential, model_from_json
+from keras.layers.core import Dense, Flatten, Dropout
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import Convolution2D
-from keras.layers.pooling import MaxPooling2D
 from keras.regularizers import l2
+from keras.optimizers import Adam
+import tensorflow as tf
+
 
 EPOCHS = 5
+BATCH = 100
 WIDTH = 160
 HEIGHTS = 80
-LEARNING_RATE = 0.001
-FINE_TUNING = False
 CHANNEL_NUMBER = 1
 REGULARIZATION = 0.001
+FINE_TUNING = False
 
 INPUT_SHAPE = (WIDTH, HEIGHTS, CHANNEL_NUMBER)
+tf.python.control_flow_ops = tf
 
-def signSpecifiedClahe(img):
-    blue = img[:, :, 0]
-    red = img[:, :, 2]
+
+def learning_rate():
+    return lambda x: 0.001 if FINE_TUNING == False else 0.00001
+
+
+def apply_clahe(filename):
+    image = cv2.imread(filename)
+    image = cv2.resize(image, [WIDTH, HEIGHTS])
+    img = image[np.newaxis, ...]
     gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     claheObj = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3))
 
-    clahe = claheObj.apply(gray_image)
-    claheRed = claheObj.apply(red)
-    claheBlue = claheObj.apply(blue)
-
-    #return np.stack((claheBlue, claheRed, clahe), axis=2)
-    return clahe
-
-class DLProgress(tqdm):
-    last_block = 0
-
-# Fix error with TF and Keras
-import tensorflow as tf
-tf.python.control_flow_ops = tf
-
-print('Modules loaded.')
-
-with open('train.p', 'rb') as f:
-    data = pickle.load(f)
-
-X_train = data['features']
-y_train = data['labels']
-
-X_train, y_train = shuffle(X_train, y_train)
+    return claheObj.apply(gray_image)
 
 def normalize_grayscale(image_data):
-    image_data = signSpecifiedClahe(image_data)
+    image_data = apply_clahe(image_data)
     a = -0.5
     b = 0.5
     grayscale_min = 0
     grayscale_max = 255
-    return a + (((image_data - grayscale_min)*(b - a))/(grayscale_max - grayscale_min))
-
-X_normalized = normalize_grayscale(X_train)
-resized = tf.image.resize_images(X_normalized, [WIDTH, HEIGHTS])
+    return a + (((image_data - grayscale_min) * (b - a)) / (grayscale_max - grayscale_min))
 
 
-label_binarizer = LabelBinarizer()
-y_one_hot = label_binarizer.fit_transform(y_train)
+def generate_cnn_model():
+    model = Sequential()
+    model.add(Convolution2D(24, 5, 5, subsample=(2, 2), input_shape=INPUT_SHAPE, W_regularizer=l2(REGULARIZATION)))
+    model.add(Dropout(0.5))
+    model.add(LeakyReLU())
+    model.add(Convolution2D(36, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
+    model.add(Dropout(0.5))
+    model.add(LeakyReLU())
+    model.add(Convolution2D(48, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
+    model.add(Dropout(0.5))
+    model.add(LeakyReLU())
+    model.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
+    model.add(Dropout(0.5))
+    model.add(LeakyReLU())
+    model.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
+    model.add(Dropout(0.5))
+    model.add(LeakyReLU())
+    model.add(Flatten())
+    model.add(Dense(100, W_regularizer=l2(REGULARIZATION)))
+    model.add(LeakyReLU())
+    model.add(Dense(50, W_regularizer=l2(REGULARIZATION)))
+    model.add(LeakyReLU())
+    model.add(Dense(10, W_regularizer=l2(REGULARIZATION)))
+    model.add(LeakyReLU())
+    model.add(Dense(1, W_regularizer=l2(REGULARIZATION)))
 
-model = Sequential()
-model.add(Convolution2D(24, 5, 5, subsample=(2, 2), input_shape=INPUT_SHAPE,  W_regularizer=l2(REGULARIZATION)))
-model.add(Dropout(0.5))
-model.add(LeakyReLU())
-model.add(Convolution2D(36, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
-model.add(Dropout(0.5))
-model.add(LeakyReLU())
-model.add(Convolution2D(48, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
-model.add(Dropout(0.5))
-model.add(LeakyReLU())
-model.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
-model.add(Dropout(0.5))
-model.add(LeakyReLU())
-model.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
-model.add(Dropout(0.5))
-model.add(LeakyReLU())
-model.add(Flatten())
-model.add(Dense(100, W_regularizer=l2(REGULARIZATION)))
-model.add(LeakyReLU())
-model.add(Dense(50, W_regularizer=l2(REGULARIZATION)))
-model.add(LeakyReLU())
-model.add(Dense(10, W_regularizer=l2(REGULARIZATION)))
-model.add(LeakyReLU())
-model.add(Dense(1, W_regularizer=l2(REGULARIZATION)))
-#model.add(Activation('softmax'))
+    return model
 
-model.compile('adam', 'categorical_crossentropy', ['accuracy'])
-history = model.fit(X_normalized, y_one_hot, nb_epoch=EPOCHS, validation_split=0.2)
 
-with open('test.p', 'rb') as f:
-    data_test = pickle.load(f)
+def generate_data_from_driving(images):
+    index = 0
+    while 1:
+        final_images = np.ndarray((BATCH, HEIGHTS, WIDTH, CHANNEL_NUMBER), dtype=float)
+        final_angles = np.ndarray(BATCH, dtype=float)
+        for i in range(BATCH):
+            if index >= len(images):
+                index = 0
+                # Shuffle X_train after every epoch
+                shuffle(images)
+            filename = images[index][0]
+            angle = images[index][1]
+            flip = images[index][2]
+            final_image = apply_clahe(filename)
+            final_angle = np.ndarray(shape=1, dtype=float)
+            final_angle[0] = angle
+            final_images[i] = final_image
+            final_angles[i] = angle
+            index += 1
+        yield ({'batchnormalization_input_1': final_images}, {'output': final_angles})
 
-X_test = data_test['features']
-y_test = data_test['labels']
 
-# TODO: Preprocess data & one-hot encode the labels
-X_normalized_test = normalize_grayscale(X_test)
-y_one_hot_test = label_binarizer.fit_transform(y_test)
+def epoch_data_length(data_length):
+    return math.ceil(data_length / BATCH) * BATCH
 
-# TODO: Evaluate model on test data
-metrics = model.evaluate(X_normalized_test, y_one_hot_test)
-for metric_i in range(len(model.metrics_names)):
-    metric_name = model.metrics_names[metric_i]
-    metric_value = metrics[metric_i]
-    print('{}: {}'.format(metric_name, metric_value))
+with open('data/driving_log.csv', 'r') as file:
+    reader = csv.reader(file)
+    driving_log = list(reader)
+
+driving_log_length = len(driving_log)
+
+
+X_train = [("", 0.0, 0) for x in range(driving_log_length)]
+
+for i in range(driving_log_length):
+    X_train[i] = (driving_log[i][0].lstrip(), float(driving_log[i][3]), 0)
+
+driving_log_length = len(X_train)
+
+X_train = shuffle(X_train)
+
+train_elements_len = int(3.0 * driving_log_length / 4.0)
+valid_elements_len = int(driving_log_length / 4.0 / 2.0)
+
+X_train = X_train[:train_elements_len]
+X_valid = X_train[train_elements_len:train_elements_len + valid_elements_len]
+X_test = X_train[train_elements_len + valid_elements_len:]
+
+
+if FINE_TUNING:
+    with open("model.json.save", 'r') as jfile:
+        model = model_from_json(json.load(jfile))
+
+    model.compile("adam", "mse")
+    weights_file = "model.h5.save"
+    model.load_weights(weights_file)
+else:
+    model = generate_cnn_model()
+
+model.compile(Adam(learning_rate), 'mean_squared_error', ['accuracy'])
+
+history = model.fit_generator(
+    generate_data_from_driving(X_train),
+    epoch_data_length(len(X_train)),
+    EPOCHS,
+    validation_data=generate_data_from_driving(X_valid),
+    nb_val_samples=epoch_data_length(len(X_valid)),
+    max_q_size=20
+)
+
+
+#history = model.fit(X_normalized, y_one_hot, nb_epoch=EPOCHS, validation_split=0.2)
+
+
+accuracy = model.evaluate_generator(generate_data_from_driving(X_test), epoch_data_length(len(X_test)))
+
+print("Test score {}".format(accuracy))
+
+model.save_weights("./model.h5")
+
+json_data = model.to_json()
+with open("./model.json", "w") as json_file:
+    json.dump(json_data, json_file)
+
+print("Saved model to disk")
