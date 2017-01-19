@@ -13,7 +13,6 @@ from keras.regularizers import l2
 from keras.optimizers import Adam
 import tensorflow as tf
 
-
 EPOCHS = 5
 BATCH = 100
 WIDTH = 160
@@ -27,17 +26,18 @@ tf.python.control_flow_ops = tf
 
 
 def learning_rate():
-    return lambda x: 0.001 if FINE_TUNING == False else 0.00001
+    return lambda x: 0.001 if FINE_TUNING is False else 0.00001
 
 
 def apply_clahe(filename):
-    image = cv2.imread(filename)
+    image = cv2.imread('data/' + filename)
     image = cv2.resize(image, [WIDTH, HEIGHTS])
     img = image[np.newaxis, ...]
     gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     claheObj = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3))
 
     return claheObj.apply(gray_image)
+
 
 def normalize_grayscale(image_data):
     image_data = apply_clahe(image_data)
@@ -49,32 +49,32 @@ def normalize_grayscale(image_data):
 
 
 def generate_cnn_model():
-    model = Sequential()
-    model.add(Convolution2D(24, 5, 5, subsample=(2, 2), input_shape=INPUT_SHAPE, W_regularizer=l2(REGULARIZATION)))
-    model.add(Dropout(0.5))
-    model.add(LeakyReLU())
-    model.add(Convolution2D(36, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
-    model.add(Dropout(0.5))
-    model.add(LeakyReLU())
-    model.add(Convolution2D(48, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
-    model.add(Dropout(0.5))
-    model.add(LeakyReLU())
-    model.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
-    model.add(Dropout(0.5))
-    model.add(LeakyReLU())
-    model.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
-    model.add(Dropout(0.5))
-    model.add(LeakyReLU())
-    model.add(Flatten())
-    model.add(Dense(100, W_regularizer=l2(REGULARIZATION)))
-    model.add(LeakyReLU())
-    model.add(Dense(50, W_regularizer=l2(REGULARIZATION)))
-    model.add(LeakyReLU())
-    model.add(Dense(10, W_regularizer=l2(REGULARIZATION)))
-    model.add(LeakyReLU())
-    model.add(Dense(1, W_regularizer=l2(REGULARIZATION)))
+    cnn = Sequential()
+    cnn.add(Convolution2D(24, 5, 5, subsample=(2, 2), input_shape=INPUT_SHAPE, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Dropout(0.5))
+    cnn.add(LeakyReLU())
+    cnn.add(Convolution2D(36, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Dropout(0.5))
+    cnn.add(LeakyReLU())
+    cnn.add(Convolution2D(48, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Dropout(0.5))
+    cnn.add(LeakyReLU())
+    cnn.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Dropout(0.5))
+    cnn.add(LeakyReLU())
+    cnn.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Dropout(0.5))
+    cnn.add(LeakyReLU())
+    cnn.add(Flatten())
+    cnn.add(Dense(100, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(LeakyReLU())
+    cnn.add(Dense(50, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(LeakyReLU())
+    cnn.add(Dense(10, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(LeakyReLU())
+    cnn.add(Dense(1, W_regularizer=l2(REGULARIZATION)))
 
-    return model
+    return cnn
 
 
 def generate_data_from_driving(images):
@@ -82,19 +82,18 @@ def generate_data_from_driving(images):
     while 1:
         final_images = np.ndarray((BATCH, HEIGHTS, WIDTH, CHANNEL_NUMBER), dtype=float)
         final_angles = np.ndarray(BATCH, dtype=float)
-        for i in range(BATCH):
+        for k in range(BATCH):
             if index >= len(images):
                 index = 0
                 # Shuffle X_train after every epoch
                 shuffle(images)
             filename = images[index][0]
             angle = images[index][1]
-            flip = images[index][2]
             final_image = apply_clahe(filename)
             final_angle = np.ndarray(shape=1, dtype=float)
             final_angle[0] = angle
-            final_images[i] = final_image
-            final_angles[i] = angle
+            final_images[k] = final_image
+            final_angles[k] = angle
             index += 1
         yield ({'batchnormalization_input_1': final_images}, {'output': final_angles})
 
@@ -102,12 +101,12 @@ def generate_data_from_driving(images):
 def epoch_data_length(data_length):
     return math.ceil(data_length / BATCH) * BATCH
 
+
 with open('data/driving_log.csv', 'r') as file:
     reader = csv.reader(file)
     driving_log = list(reader)
 
 driving_log_length = len(driving_log)
-
 
 X_train = [("", 0.0, 0) for x in range(driving_log_length)]
 
@@ -124,7 +123,6 @@ valid_elements_len = int(driving_log_length / 4.0 / 2.0)
 X_train = X_train[:train_elements_len]
 X_valid = X_train[train_elements_len:train_elements_len + valid_elements_len]
 X_test = X_train[train_elements_len + valid_elements_len:]
-
 
 if FINE_TUNING:
     with open("model.json.save", 'r') as jfile:
@@ -147,8 +145,7 @@ history = model.fit_generator(
     max_q_size=20
 )
 
-
-#history = model.fit(X_normalized, y_one_hot, nb_epoch=EPOCHS, validation_split=0.2)
+# history = model.fit(X_normalized, y_one_hot, nb_epoch=EPOCHS, validation_split=0.2)
 
 
 accuracy = model.evaluate_generator(generate_data_from_driving(X_test), epoch_data_length(len(X_test)))
