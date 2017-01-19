@@ -17,8 +17,8 @@ EPOCHS = 5
 BATCH = 100
 WIDTH = 160
 HEIGHTS = 80
-CHANNEL_NUMBER = 1
-REGULARIZATION = 0.001
+CHANNEL_NUMBER = 3
+REGULARIZATION = 0.0
 FINE_TUNING = False
 
 INPUT_SHAPE = (HEIGHTS, WIDTH, CHANNEL_NUMBER)
@@ -29,26 +29,18 @@ def learning_rate():
     if FINE_TUNING:
         return 0.00001
     else:
-        return 0.0001
+        return 0.001
 
 
 def apply_clahe(filename):
     image = cv2.imread('data/' + filename)
-    image = cv2.resize(image, [WIDTH, HEIGHTS])
+    image = cv2.resize(image, (WIDTH, HEIGHTS))
     img = image[np.newaxis, ...]
-    gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    claheObj = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3))
+    #gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    #claheObj = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3))
 
-    return claheObj.apply(gray_image)
-
-
-def normalize_grayscale(image_data):
-    image_data = apply_clahe(image_data)
-    a = -0.5
-    b = 0.5
-    grayscale_min = 0
-    grayscale_max = 255
-    return a + (((image_data - grayscale_min) * (b - a)) / (grayscale_max - grayscale_min))
+    #return claheObj.apply(gray_image)
+    return img
 
 
 def generate_cnn_model():
