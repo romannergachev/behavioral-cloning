@@ -32,6 +32,25 @@ def learning_rate():
         return 0.001
 
 
+def apply_clahe2(filename, mirrored=False):
+    image = cv2.imread('data/' + filename)
+    image = cv2.resize(image, (WIDTH, HEIGHTS))
+    if mirrored:
+        image = cv2.flip(image, 1)
+    img = image
+
+    blue = img[:, :, 0]
+    red = img[:, :, 2]
+    gray_image = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+    claheObj = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3))
+    clahe = claheObj.apply(gray_image)
+    claheRed = claheObj.apply(red)
+    claheBlue = claheObj.apply(blue)
+
+    return np.stack((claheBlue, claheRed, clahe), axis=2)
+
+
 def apply_clahe(filename, mirrored=False):
     image = cv2.imread('data/' + filename)
     image = cv2.resize(image, (WIDTH, HEIGHTS))
@@ -39,16 +58,6 @@ def apply_clahe(filename, mirrored=False):
         image = cv2.flip(image, 1)
 
     img = image[np.newaxis, ...]
-    #blue = img[:, :, 0]
-    #red = img[:, :, 2]
-    #gray_image = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-
-    #claheObj = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3))
-    #clahe = claheObj.apply(gray_image)
-    #claheRed = claheObj.apply(red)
-    #claheBlue = claheObj.apply(blue)
-
-    #return np.stack((claheBlue, claheRed, clahe), axis=2)
     return img
 
 
@@ -155,7 +164,7 @@ history = model.fit_generator(
     EPOCHS,
     validation_data=generate_data_from_driving(X_valid),
     nb_val_samples=epoch_data_length(len(X_valid)),
-    max_q_size=20
+    max_q_size=10
 )
 
 # history = model.fit(X_normalized, y_one_hot, nb_epoch=EPOCHS, validation_split=0.2)
@@ -163,7 +172,7 @@ history = model.fit_generator(
 
 accuracy = model.evaluate_generator(generate_data_from_driving(X_test), epoch_data_length(len(X_test)))
 
-print("Test score {}".format(accuracy))
+print("Test accuracy {}".format(accuracy))
 
 model.save_weights("./model.h5")
 
