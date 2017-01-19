@@ -32,14 +32,23 @@ def learning_rate():
         return 0.001
 
 
-def apply_clahe(filename):
+def apply_clahe(filename, mirrored=False):
     image = cv2.imread('data/' + filename)
     image = cv2.resize(image, (WIDTH, HEIGHTS))
-    img = image[np.newaxis, ...]
-    #gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    #claheObj = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3))
+    if mirrored:
+        image = cv2.flip(image, 1)
 
-    #return claheObj.apply(gray_image)
+    img = image[np.newaxis, ...]
+    #blue = img[:, :, 0]
+    #red = img[:, :, 2]
+    #gray_image = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+    #claheObj = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3))
+    #clahe = claheObj.apply(gray_image)
+    #claheRed = claheObj.apply(red)
+    #claheBlue = claheObj.apply(blue)
+
+    #return np.stack((claheBlue, claheRed, clahe), axis=2)
     return img
 
 
@@ -85,7 +94,8 @@ def generate_data_from_driving(images):
                 shuffle(images)
             filename = images[index][0]
             angle = images[index][1]
-            final_image = apply_clahe(filename)
+            mirrored = images[index][2]
+            final_image = apply_clahe(filename, mirrored)
             final_angle = np.ndarray(shape=1, dtype=float)
             final_angle[0] = angle
             final_images[k] = final_image
@@ -104,10 +114,17 @@ with open('data/driving_log.csv', 'r') as file:
 
 driving_log_length = len(driving_log)
 
-X_train = [("", 0.0, 0) for x in range(driving_log_length)]
+X_train = [("", 0.0, False) for x in range(driving_log_length)]
 
 for i in range(driving_log_length):
     X_train[i] = (driving_log[i][0].lstrip(), float(driving_log[i][3]), 0)
+
+driving_log_length = len(X_train)
+
+if not FINE_TUNING:
+    for i in range(driving_log_length):
+        if X_train[i][1] != 0.0:
+            X_train.append([X_train[i][0], -1.0 * X_train[i][1], True])
 
 driving_log_length = len(X_train)
 
