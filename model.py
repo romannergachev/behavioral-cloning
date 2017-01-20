@@ -21,6 +21,14 @@ CHANNEL_NUMBER = 3
 REGULARIZATION = 0.0
 FINE_TUNING = True
 
+INITIAL_ITERATION = 'data/'
+FIRST_ITERATION = 'driving/'
+SECOND_ITERATION = 'driving2/'
+THIRD_ITERATION = 'driving3/'
+ERRORS_ITERATION = 'errors/'
+
+SELECTED_FOLDER = THIRD_ITERATION
+
 INPUT_SHAPE = (HEIGHTS, WIDTH, CHANNEL_NUMBER)
 tf.python.control_flow_ops = tf
 
@@ -33,7 +41,7 @@ def learning_rate():
 
 
 def apply_clahe2(filename, mirrored=False):
-    image = cv2.imread('data/' + filename)
+    image = cv2.imread(SELECTED_FOLDER + filename)
     image = cv2.resize(image, (WIDTH, HEIGHTS))
     if mirrored:
         image = cv2.flip(image, 1)
@@ -52,7 +60,8 @@ def apply_clahe2(filename, mirrored=False):
 
 
 def apply_clahe(filename, mirrored=False):
-    image = cv2.imread('data/' + filename)
+    #image = cv2.imread(INITIAL_ITERATION + filename)
+    image = cv2.imread(filename)
     image = cv2.resize(image, (WIDTH, HEIGHTS))
     if mirrored:
         image = cv2.flip(image, 1)
@@ -117,7 +126,7 @@ def epoch_data_length(data_length):
     return math.ceil(data_length / BATCH) * BATCH
 
 
-with open('data/driving_log.csv', 'r') as file:
+with open(SELECTED_FOLDER + 'driving_log.csv', 'r') as file:
     reader = csv.reader(file)
     driving_log = list(reader)
 
@@ -163,8 +172,7 @@ history = model.fit_generator(
     epoch_data_length(len(X_train)),
     EPOCHS,
     validation_data=generate_data_from_driving(X_valid),
-    nb_val_samples=epoch_data_length(len(X_valid)),
-    max_q_size=10
+    nb_val_samples=epoch_data_length(len(X_valid))
 )
 
 # history = model.fit(X_normalized, y_one_hot, nb_epoch=EPOCHS, validation_split=0.2)
