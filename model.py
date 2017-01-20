@@ -18,10 +18,10 @@ BATCH = 100
 WIDTH = 160
 HEIGHTS = 80
 CHANNEL_NUMBER = 3
-REGULARIZATION = 0.0
+REG = 0.01
 FINE_TUNING = True
 
-INPUT_SHAPE = (HEIGHTS, WIDTH, CHANNEL_NUMBER)
+SHAPE = (HEIGHTS, WIDTH, CHANNEL_NUMBER)
 tf.python.control_flow_ops = tf
 
 
@@ -63,53 +63,53 @@ def apply_clahe(filename, mirrored=False):
 
 def generate_cnn_model():
     cnn = Sequential()
-    cnn.add(Lambda(lambda x: x / 128. - 1., input_shape=INPUT_SHAPE, output_shape=INPUT_SHAPE))
-    cnn.add(Convolution2D(24, 5, 5, subsample=(2, 2), input_shape=INPUT_SHAPE, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Lambda(lambda x: x / 128. - 1., input_shape=SHAPE, output_shape=SHAPE))
+    cnn.add(Convolution2D(24, 5, 5, subsample=(2, 2), input_shape=SHAPE, W_regularizer=l2(REG), b_regularizer=l2(REG)))
     cnn.add(Dropout(0.5))
     cnn.add(LeakyReLU())
-    cnn.add(Convolution2D(36, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Convolution2D(36, 5, 5, subsample=(2, 2), W_regularizer=l2(REG)))
     cnn.add(Dropout(0.5))
     cnn.add(LeakyReLU())
-    cnn.add(Convolution2D(48, 5, 5, subsample=(2, 2), W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Convolution2D(48, 5, 5, subsample=(2, 2), W_regularizer=l2(REG)))
     cnn.add(Dropout(0.5))
     cnn.add(LeakyReLU())
-    cnn.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Convolution2D(64, 3, 3, W_regularizer=l2(REG), b_regularizer=l2(REG)))
     cnn.add(Dropout(0.5))
     cnn.add(LeakyReLU())
-    cnn.add(Convolution2D(64, 3, 3, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Convolution2D(64, 3, 3, W_regularizer=l2(REG), b_regularizer=l2(REG)))
     cnn.add(Dropout(0.5))
     cnn.add(LeakyReLU())
     cnn.add(Flatten())
-    cnn.add(Dense(100, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Dense(100, W_regularizer=l2(REG), b_regularizer=l2(REG)))
     cnn.add(LeakyReLU())
-    cnn.add(Dense(50, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Dense(50, W_regularizer=l2(REG), b_regularizer=l2(REG)))
     cnn.add(LeakyReLU())
-    cnn.add(Dense(10, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Dense(10, W_regularizer=l2(REG), b_regularizer=l2(REG)))
     cnn.add(LeakyReLU())
-    cnn.add(Dense(1, W_regularizer=l2(REGULARIZATION)))
+    cnn.add(Dense(1, W_regularizer=l2(REG), b_regularizer=l2(REG)))
 
     return cnn
 
 
 def generate_data_from_driving(images):
-    index = 0
+    closed_counter = 0
     while 1:
         final_images = np.ndarray((BATCH, HEIGHTS, WIDTH, CHANNEL_NUMBER), dtype=float)
         final_angles = np.ndarray(BATCH, dtype=float)
         for k in range(BATCH):
-            if index >= len(images):
-                index = 0
-                # Shuffle X_train after every epoch
+            if closed_counter == len(images):
                 shuffle(images)
-            filename = images[index][0]
-            angle = images[index][1]
-            mirrored = images[index][2]
+                closed_counter = 0
+
+            filename = images[closed_counter][0]
+            angle = images[closed_counter][1]
+            mirrored = images[closed_counter][2]
             final_image = apply_clahe(filename, mirrored)
-            final_angle = np.ndarray(shape=1, dtype=float)
+            final_angle = np.ndarray(1, dtype=float)
             final_angle[0] = angle
             final_images[k] = final_image
             final_angles[k] = angle
-            index += 1
+            closed_counter += 1
         yield ({'lambda_input_1': final_images}, {'dense_4': final_angles})
 
 
@@ -166,9 +166,6 @@ history = model.fit_generator(
     nb_val_samples=epoch_data_length(len(X_valid)),
     max_q_size=10
 )
-
-# history = model.fit(X_normalized, y_one_hot, nb_epoch=EPOCHS, validation_split=0.2)
-
 
 accuracy = model.evaluate_generator(generate_data_from_driving(X_test), epoch_data_length(len(X_test)))
 
