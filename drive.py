@@ -3,6 +3,7 @@ import base64
 import json
 
 import cv2
+import preprocessing
 import numpy as np
 import socketio
 import eventlet.wsgi
@@ -35,10 +36,8 @@ def telemetry(sid, data):
     imgString = data["image"]
     image = Image.open(BytesIO(base64.b64decode(imgString)))
     image_array = np.asarray(image)
-    image_array = crop(image_array, 0.35, 0.1)
-    image_array = cv2.resize(image_array, (160, 80))
-
-
+    image_array = crop(image_array)
+    image_array = cv2.resize(image_array, (preprocessing.POST_PROCESSING_SIZE, preprocessing.POST_PROCESSING_SIZE))
     transformed_image_array = image_array[None, :, :, :]
     # This model currently assumes that the features of the model are just the images. Feel free to change this.
     steering_angle = float(model.predict(transformed_image_array, batch_size=1))
