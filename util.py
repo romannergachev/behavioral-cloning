@@ -4,7 +4,7 @@ CROP = [0.337, 0.112]
 
 
 def crop(image):
-    top = int(np.ceil(image.shape[0] * CROP[0]))
-    bottom = image.shape[0] - int(np.ceil(image.shape[0] * CROP[1]))
+    top = int(np.ceil(CROP[0] * image.shape[0]))
+    bottom = image.shape[0] - int(np.ceil(CROP[1] * image.shape[0]))
 
     return image[top:bottom, :]
