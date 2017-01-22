@@ -1,6 +1,6 @@
 import numpy as np
 
-CROP = [0.337, 0.112]
+CROP = [0.337, 0.1]
 
 
 def crop(image):
