@@ -13,6 +13,7 @@ This project uses Python 3.5.x and the following dependencies:
 - [TensorFlow](http://tensorflow.org)
 - [OpenCV](http://opencv.org/)
 - [Sklearn](http://scikit-learn.org/)
+
 ### How to run
 In order to evaluate the model please run the command in terminal
 `python drive.py model.json`
