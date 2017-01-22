@@ -23,6 +23,7 @@ var/
 __*/
 data/
 models/
+Dominique*
 *.egg-info/
 .installed.cfg
 *.egg
