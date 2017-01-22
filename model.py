@@ -3,8 +3,6 @@ import math
 import csv
 import json
 
-from scipy.stats import bernoulli
-
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.layers import MaxPooling2D
 from sklearn.utils import shuffle
@@ -16,14 +14,11 @@ from keras.optimizers import Adam
 import tensorflow as tf
 import preprocessing
 
-EPOCHS = 20
-BATCH = 100
+EPOCHS = 10
+BATCH = 64
 CHANNEL_NUMBER = 3
-ANGLE_COEFFICIENT = 0.229
+ANGLE_COEFFICIENT = 0.23
 FINE_TUNING = False
-FAIR_COIN = 0.5
-
-CROPPING = (0, 0, 0, 0)
 
 CHOICE_LIST = ['CENTER', 'LEFT', 'RIGHT']
 
@@ -49,19 +44,19 @@ def generate_cnn_model():
     cnn.add(LeakyReLU())
     cnn.add(MaxPooling2D((2, 2), (1, 1)))
     cnn.add(Convolution2D(48, 5, 5, border_mode='same', subsample=(2, 2)))
-    cnn.add(Dropout(0.5))
     cnn.add(LeakyReLU())
+    cnn.add(Dropout(0.5))
     cnn.add(MaxPooling2D((2, 2), (1, 1)))
     cnn.add(Convolution2D(64, 3, 3))
     cnn.add(LeakyReLU())
     cnn.add(MaxPooling2D((2, 2), (1, 1)))
     cnn.add(Convolution2D(64, 3, 3))
-    cnn.add(Dropout(0.5))
     cnn.add(LeakyReLU())
     cnn.add(MaxPooling2D((2, 2), (1, 1)))
     cnn.add(Flatten())
     cnn.add(Dense(100))
     cnn.add(LeakyReLU())
+    cnn.add(Dropout(0.3))
     cnn.add(Dense(50))
     cnn.add(LeakyReLU())
     cnn.add(Dense(10))
@@ -82,7 +77,7 @@ def generate_data_from_driving(images):
                 closed_counter = 0
 
             random_image = np.random.choice(CHOICE_LIST)
-            mirrored = bernoulli.rvs(FAIR_COIN)
+            mirrored = preprocessing.flip_a_coin()
 
             if random_image == CHOICE_LIST[0]:
                 filename = images[closed_counter][0]
@@ -99,9 +94,7 @@ def generate_data_from_driving(images):
                 angle = images[closed_counter][3] - ANGLE_COEFFICIENT
                 if mirrored:
                     angle = -angle
-
-            x[k] = preprocessing.pre_processing(filename, mirrored, angle)
-            y[k] = angle
+            x[k], y[k] = preprocessing.pre_processing(filename, mirrored, angle)
             closed_counter += 1
         yield ({'lambda_input_1': x}, {'dense_4': y})
 
@@ -130,8 +123,8 @@ driving_log_length = len(X_train)
 
 X_train = shuffle(X_train)
 
-train_elements_len = int(3.0 * driving_log_length / 4.0)
-valid_elements_len = int(driving_log_length / 4.0 / 2.0)
+train_elements_len = int(4.0 * driving_log_length / 5.0)
+valid_elements_len = int(driving_log_length / 5.0 / 2.0)
 
 X_valid = X_train[train_elements_len:train_elements_len + valid_elements_len]
 X_test = X_train[train_elements_len + valid_elements_len:]
@@ -150,14 +143,14 @@ else:
 model.compile(Adam(learning_rate), 'mse')
 
 checkpoint = ModelCheckpoint('model.h5', 'val_loss', 1, True)
-early_stopping = EarlyStopping('val_loss', patience=5, verbose=1)
+early_stopping = EarlyStopping('val_loss', patience=1, verbose=1)
 
 history = model.fit_generator(
     generate_data_from_driving(X_train),
-    epoch_data_length(len(X_train)),
+    3 * epoch_data_length(len(X_train)),
     EPOCHS,
     validation_data=generate_data_from_driving(X_valid),
-    nb_val_samples=epoch_data_length(len(X_valid)),
+    nb_val_samples=3 * epoch_data_length(len(X_valid)),
     callbacks=[checkpoint, early_stopping]
 )
 
