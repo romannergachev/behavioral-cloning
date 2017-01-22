@@ -106,6 +106,8 @@ results and the car behavior.
 What I've found out is that MSE parameter actually haven't been really useful in this project. Because even when 
 the loss was really small - our model could perform really bad on the track. So I think that MSE was not the best metric
 for evaluation of this project. So mainly I've been using real track testing to test the model.
+
+[![The car is driving autonomously controlled by trained deep network](http://img.youtube.com/vi/R2tT5iprNF0/0.jpg)](http://www.youtube.com/watch?v=R2tT5iprNF0)
 ## Future Improvements
 - Implement other preprocessing methods
 - Try the transfer learning from the imagenet pretrained model and use it's results to improve the model
